@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL inspection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #12161c;
+    --paper: #eeece4;
+    --paper-2: #e4e1d6;
+    --line: #c7c3b5;
+    --line-strong: #a39d89;
+    --text: #1b1f26;
+    --text-muted: #66655c;
+    --safe: #2f6b52;
+    --safe-bg: #dbe7dd;
+    --warn: #96631a;
+    --warn-bg: #efe1c3;
+    --danger: #8f3326;
+    --danger-bg: #f0d9d1;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    padding: 4rem 1.5rem 6rem;
+    min-height: 100vh;
+  }
+
+  .sheet {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 0.85rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .masthead h1 {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-weight: 600;
+    font-size: 1.7rem;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .masthead span {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  .subhead {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin: 0.6rem 0 2rem;
+    max-width: 46ch;
+    line-height: 1.5;
+  }
+
+  .intake {
+    display: flex;
+    gap: 0;
+    border: 1.5px solid var(--ink);
+    background: #fff;
+  }
+
+  .intake input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 0.85rem 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--text);
+    outline: none;
+  }
+
+  .intake input::placeholder { color: #a8a498; }
+
+  .intake button {
+    border: none;
+    border-left: 1.5px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 0.85rem;
+    padding: 0 1.5rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .intake button:hover { background: #2a313c; }
+  .intake button:active { transform: scale(0.99); }
+
+  .hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 0.6rem 0.1rem 0;
+  }
+
+  .error-msg {
+    display: none;
+    font-size: 0.82rem;
+    color: var(--danger);
+    margin: 0.6rem 0.1rem 0;
+  }
+
+  #empty {
+    margin-top: 3.5rem;
+    padding: 2rem 0;
+    border-top: 1px dashed var(--line-strong);
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  #report { display: none; margin-top: 2.5rem; }
+
+  .verdict-block {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.4rem 1.5rem;
+    border: 1.5px solid var(--ink);
+    margin-bottom: 1.75rem;
+  }
+
+  .verdict-word {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 600;
+    font-size: 1.9rem;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .verdict-word.safe { color: var(--safe); }
+  .verdict-word.suspicious { color: var(--warn); }
+  .verdict-word.dangerous { color: var(--danger); }
+
+  .verdict-meta {
+    border-left: 1px solid var(--line-strong);
+    padding-left: 1.25rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .verdict-meta .domain {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+    color: var(--text);
+  }
+
+  .verdict-meta .score-line {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+  }
+
+  .score-line b { color: var(--text); font-weight: 500; }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    text-transform: lowercase;
+    color: var(--text-muted);
+    margin: 0 0 0.6rem 0.1rem;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .findings { border-top: 1px solid var(--line); }
+
+  .finding {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem 0.1rem;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+
+  .finding .badge {
+    flex-shrink: 0;
+    width: 2.4rem;
+    text-align: right;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding-top: 0.05rem;
+  }
+
+  .finding .body { flex: 1; min-width: 0; }
+
+  .finding .check {
+    font-size: 0.88rem;
+    font-weight: 500;
+    margin-bottom: 0.15rem;
+  }
+
+  .finding .detail {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+
+  .no-findings {
+    padding: 1rem 0.1rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .clean-check {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0.1rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.82rem;
+    color: var(--safe);
+  }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 2.5rem 1rem 4rem; }
+    .verdict-block { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .verdict-meta { border-left: none; padding-left: 0; border-top: 1px solid var(--line-strong); padding-top: 0.75rem; width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <script src="script.js"></script>
+<div class="sheet">
+
+  <div class="masthead">
+    <h1>URL inspection</h1>
+    <span id="clock">—</span>
+  </div>
+  <p class="subhead">Enter a URL to run it through eight heuristic checks — encryption, domain shape, redirects, and known phishing patterns.</p>
+
+  <div class="intake">
+    <input type="text" id="url-input" placeholder="paypal-secure-login.example.tk/verify" autocomplete="off" spellcheck="false">
+    <button id="scan-btn">Inspect</button>
+  </div>
+  <p class="hint">No protocol needed — http:// is assumed if omitted.</p>
+  <p class="error-msg" id="error-msg"></p>
+
+  <div id="empty">Findings will appear here once a URL is inspected. Nothing is sent anywhere — every check runs locally in this page.</div>
+
+  <div id="report">
+    <div class="verdict-block">
+      <div class="verdict-word" id="verdict-word">—</div>
+      <div class="verdict-meta">
+        <div class="domain" id="domain-line">—</div>
+        <div class="score-line">risk score <b id="score-line">0</b> / 100</div>
+      </div>
+    </div>
+
+    <div class="section-label"><span>findings</span><span id="findings-count"></span></div>
+    <div class="findings" id="findings"></div>
+  </div>
+
+  <footer>Runs entirely client-side against 8 core checks (HTTPS, domain length, redirect count, suspicious characters, IP-literal hosts, suspicious keywords, unusual TLDs, URL length) plus several supporting heuristics. It flags patterns common in phishing — it cannot confirm a URL is safe or malicious with certainty.</footer>
+
+</div>
+
+<script>
+const CONFIG = {
+  MAX_SAFE_URL_LENGTH: 75,
+  MAX_SAFE_DOMAIN_LENGTH: 30,
+  SUSPICIOUS_KEYWORDS: ["login","verify","update","secure","account","banking","confirm","signin","webscr","password","suspend","urgent","click","free","bonus","gift","unlock","limited","alert","recover","billing","invoice","security","authenticate"],
+  SUSPICIOUS_TLDS: ["tk","ml","ga","cf","gq","xyz","top","work","click","loan","win","review","download","racing","party","faith"],
+  URL_SHORTENERS: ["bit.ly","tinyurl.com","goo.gl","t.co","ow.ly","is.gd","buff.ly","adf.ly","shorte.st","rebrand.ly"],
+  BRAND_KEYWORDS: ["paypal","amazon","apple","microsoft","google","facebook","netflix","bankofamerica","wellsfargo","chase","instagram"],
+  WEIGHTS: { noHttps:15, ipAddress:25, longUrl:10, longDomain:8, suspiciousChars:15, suspiciousKeyword:12, unusualTld:15, manySubdomains:10, urlShortener:10, atSymbol:20, hyphenInDomain:6, brandInSubdomainOrPath:18, punycode:15, portInUrl:10 },
+  THRESHOLDS: { safe: 30, suspicious: 60 }
+};
+
+function parseUrl(inputUrl) {
+  let urlStr = inputUrl.trim();
+  let hadProtocol = /^https?:\/\//i.test(urlStr);
+  if (!hadProtocol) urlStr = "http://" + urlStr;
+  let parsed;
+  try { parsed = new URL(urlStr); }
+  catch (err) { return { error: "That doesn't parse as a valid URL." }; }
+  return {
+    raw: inputUrl, hadProtocol,
+    hostname: parsed.hostname, port: parsed.port,
+    pathname: parsed.pathname, fullUrl: urlStr,
+    isHttps: parsed.protocol === "https:"
+  };
+}
+
+function isIpAddress(hostname) {
+  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (ipv4.test(hostname)) return hostname.split(".").every(o => Number(o) >= 0 && Number(o) <= 255);
+  return hostname.includes(":") && /^\[?[0-9a-fA-F:]+\]?$/.test(hostname);
+}
+
+function getTld(hostname) {
+  const parts = hostname.split(".");
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+}
+
+function countSubdomains(hostname) {
+  if (isIpAddress(hostname)) return 0;
+  return Math.max(0, hostname.split(".").length - 2);
+}
+
+function hasSuspiciousChars(url) {
+  return /[<>{}[\]\\^~`]|%00|\.\.\//.test(url);
+}
+
+function containsPunycode(hostname) { return hostname.includes("xn--"); }
+
+function findKeywordMatches(url) {
+  const lower = url.toLowerCase();
+  return CONFIG.SUSPICIOUS_KEYWORDS.filter(kw => lower.includes(kw));
+}
+
+function findBrandImpersonation(hostname, pathname) {
+  const lowerHost = hostname.toLowerCase();
+  const lowerPath = pathname.toLowerCase();
+  const registrable = lowerHost.split(".").slice(-2).join(".");
+  return CONFIG.BRAND_KEYWORDS.filter(brand => {
+    const inHost = lowerHost.includes(brand);
+    const inRegistrable = registrable.includes(brand);
+    const inPath = lowerPath.includes(brand);
+    return (inHost && !inRegistrable) || inPath;
+  });
+}
+
+function isUrlShortener(hostname) {
+  return CONFIG.URL_SHORTENERS.some(s => hostname.toLowerCase() === s);
+}
+
+function analyzeUrl(parsedUrl) {
+  const flags = [];
+  let score = 0;
+  const { fullUrl, hostname, pathname, isHttps, port } = parsedUrl;
+
+  if (!isHttps) { score += CONFIG.WEIGHTS.noHttps; flags.push({ check: "HTTPS", detail: "Connection is not encrypted (no HTTPS)", weight: CONFIG.WEIGHTS.noHttps }); }
+  if (isIpAddress(hostname)) { score += CONFIG.WEIGHTS.ipAddress; flags.push({ check: "IP address", detail: `Uses a raw IP address (${hostname}) instead of a domain name`, weight: CONFIG.WEIGHTS.ipAddress }); }
+  if (fullUrl.length > CONFIG.MAX_SAFE_URL_LENGTH) { score += CONFIG.WEIGHTS.longUrl; flags.push({ check: "URL length", detail: `Unusually long URL (${fullUrl.length} characters)`, weight: CONFIG.WEIGHTS.longUrl }); }
+  if (hostname.length > CONFIG.MAX_SAFE_DOMAIN_LENGTH) { score += CONFIG.WEIGHTS.longDomain; flags.push({ check: "Domain length", detail: `Unusually long domain (${hostname.length} characters)`, weight: CONFIG.WEIGHTS.longDomain }); }
+  if (hasSuspiciousChars(fullUrl)) { score += CONFIG.WEIGHTS.suspiciousChars; flags.push({ check: "Suspicious characters", detail: "Contains unusual or encoded characters often used to obscure a URL", weight: CONFIG.WEIGHTS.suspiciousChars }); }
+  if (fullUrl.includes("@")) { score += CONFIG.WEIGHTS.atSymbol; flags.push({ check: "@ symbol", detail: "Browsers ignore everything before an '@' when resolving the host — a classic redirection trick", weight: CONFIG.WEIGHTS.atSymbol }); }
+
+  const keywordMatches = findKeywordMatches(fullUrl);
+  if (keywordMatches.length) { const w = CONFIG.WEIGHTS.suspiciousKeyword * Math.min(keywordMatches.length, 3); score += w; flags.push({ check: "Suspicious keywords", detail: `Contains: ${keywordMatches.join(", ")}`, weight: w }); }
+
+  const tld = getTld(hostname);
+  if (CONFIG.SUSPICIOUS_TLDS.includes(tld)) { score += CONFIG.WEIGHTS.unusualTld; flags.push({ check: "Unusual TLD", detail: `".${tld}" is a top-level domain commonly abused for phishing`, weight: CONFIG.WEIGHTS.unusualTld }); }
+
+  const subdomains = countSubdomains(hostname);
+  if (subdomains >= 3) { score += CONFIG.WEIGHTS.manySubdomains; flags.push({ check: "Excessive subdomains", detail: `${subdomains} subdomains — often used to disguise the real domain`, weight: CONFIG.WEIGHTS.manySubdomains }); }
+
+  if (isUrlShortener(hostname)) { score += CONFIG.WEIGHTS.urlShortener; flags.push({ check: "URL shortener", detail: "Uses a shortening service, which can mask the real destination", weight: CONFIG.WEIGHTS.urlShortener }); }
+
+  if (!isIpAddress(hostname) && hostname.includes("-")) { score += CONFIG.WEIGHTS.hyphenInDomain; flags.push({ check: "Hyphenated domain", detail: "Contains hyphens, sometimes used to mimic legitimate brands", weight: CONFIG.WEIGHTS.hyphenInDomain }); }
+
+  const brandMatches = findBrandImpersonation(hostname, pathname);
+  if (brandMatches.length) { score += CONFIG.WEIGHTS.brandInSubdomainOrPath; flags.push({ check: "Brand impersonation", detail: `Mentions ${brandMatches.join(", ")} outside the actual domain`, weight: CONFIG.WEIGHTS.brandInSubdomainOrPath }); }
+
+  if (containsPunycode(hostname)) { score += CONFIG.WEIGHTS.punycode; flags.push({ check: "Punycode", detail: "Domain uses punycode (xn--), sometimes used for homograph attacks", weight: CONFIG.WEIGHTS.punycode }); }
+
+  if (port && !["80","443",""].includes(port)) { score += CONFIG.WEIGHTS.portInUrl; flags.push({ check: "Non-standard port", detail: `Uses port ${port}`, weight: CONFIG.WEIGHTS.portInUrl }); }
+
+  return { score: Math.min(score, 100), flags };
+}
+
+function classifyRisk(score) {
+  if (score < CONFIG.THRESHOLDS.safe) return "SAFE";
+  if (score < CONFIG.THRESHOLDS.suspicious) return "SUSPICIOUS";
+  return "DANGEROUS";
+}
+
+function detectPhishing(inputUrl) {
+  const parsed = parseUrl(inputUrl);
+  if (parsed.error) return { error: parsed.error };
+  const { score, flags } = analyzeUrl(parsed);
+  return { domain: parsed.hostname, fullUrl: parsed.fullUrl, score, flags, verdict: classifyRisk(score) };
+}
+
+const input = document.getElementById('url-input');
+const btn = document.getElementById('scan-btn');
+const errorMsg = document.getElementById('error-msg');
+const empty = document.getElementById('empty');
+const report = document.getElementById('report');
+const clock = document.getElementById('clock');
+
+function stamp() {
+  const now = new Date();
+  clock.textContent = now.toISOString().slice(0,16).replace('T', ' ');
+}
+stamp();
+setInterval(stamp, 30000);
+
+function run() {
+  const val = input.value.trim();
+  errorMsg.style.display = 'none';
+  if (!val) { errorMsg.textContent = 'Enter a URL first.'; errorMsg.style.display = 'block'; return; }
+
+  const result = detectPhishing(val);
+  if (result.error) { errorMsg.textContent = result.error; errorMsg.style.display = 'block'; return; }
+
+  empty.style.display = 'none';
+  report.style.display = 'block';
+
+  const vw = document.getElementById('verdict-word');
+  vw.textContent = result.verdict;
+  vw.className = 'verdict-word ' + result.verdict.toLowerCase();
+
+  document.getElementById('domain-line').textContent = result.domain;
+  document.getElementById('score-line').textContent = result.score;
+  document.getElementById('findings-count').textContent = result.flags.length + (result.flags.length === 1 ? ' item' : ' items');
+
+  const findingsEl = document.getElementById('findings');
+  findingsEl.innerHTML = '';
+
+  if (result.flags.length === 0) {
+    findingsEl.innerHTML = '<div class="no-findings">No red flags surfaced by these checks.</div>';
+  } else {
+    result.flags
+      .sort((a,b) => b.weight - a.weight)
+      .forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'finding';
+        row.innerHTML = `<div class="badge">+${f.weight}</div><div class="body"><div class="check">${f.check}</div><div class="detail">${f.detail}</div></div>`;
+        findingsEl.appendChild(row);
+      });
+  }
+}
+
+btn.addEventListener('click', run);
+input.addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+</script>
+</body>
+</html>
